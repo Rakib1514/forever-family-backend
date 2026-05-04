@@ -3,13 +3,26 @@ from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
+class UserBasicSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for nested user info."""
+    class Meta:
+        model = User
+        fields = ('id', 'first_name', 'last_name', 'nick_name', 'gender')
+
 class UserSerializer(serializers.ModelSerializer):
+    mother_detail = UserBasicSerializer(source='mother', read_only=True)
+    father_detail = UserBasicSerializer(source='father', read_only=True)
+    spouse_detail = UserBasicSerializer(source='spouse', read_only=True)
+
     class Meta:
         model = User
         fields = (
-            'id', 'email', 'first_name', 'last_name', 'nick_name', 
+            'id', 'email', 'phone_number', 'first_name', 'last_name', 'nick_name', 
             'birth_date', 'passed_on', 'gender', 'current_address', 
-            'permanent_address', 'is_primary', 'mother', 'father', 'spouse'
+            'permanent_address', 'is_primary', 
+            'mother', 'mother_detail', 
+            'father', 'father_detail', 
+            'spouse', 'spouse_detail'
         )
         read_only_fields = ('id',)
 
