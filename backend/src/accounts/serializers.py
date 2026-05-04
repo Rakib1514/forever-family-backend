@@ -9,6 +9,16 @@ class UserBasicSerializer(serializers.ModelSerializer):
         model = User
         fields = ('id', 'first_name', 'last_name', 'nick_name', 'gender')
 
+class UserListSerializer(serializers.ModelSerializer):
+    """Lighter serializer for list views to improve performance."""
+    class Meta:
+        model = User
+        fields = (
+            'id', 'email', 'phone_number', 'first_name', 'last_name', 
+            'nick_name', 'gender', 'is_primary'
+        )
+        read_only_fields = ('id',)
+
 class UserSerializer(serializers.ModelSerializer):
     mother_detail = UserBasicSerializer(source='mother', read_only=True)
     father_detail = UserBasicSerializer(source='father', read_only=True)

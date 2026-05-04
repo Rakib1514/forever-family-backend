@@ -5,7 +5,10 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from .serializers import UserSerializer, RegisterSerializer, ShadowUserSerializer
+from .serializers import (
+    UserSerializer, RegisterSerializer, ShadowUserSerializer,
+    UserListSerializer
+)
 from rooms.models import Room
 
 User = get_user_model()
@@ -66,6 +69,8 @@ class ShadowUserCreateView(generics.CreateAPIView):
         if room:
             room.members.add(shadow_user)
 
+from django.core.cache import cache
+
 class SharedUserVisibilityMixin:
     """Mixin to provide queryset for users sharing a room with the requester."""
     def get_queryset(self):
@@ -73,29 +78,34 @@ class SharedUserVisibilityMixin:
         if not user.is_authenticated:
             return User.objects.none()
             
-        # 1. Rooms accessible by the requester
-        accessible_rooms = Room.objects.filter(
+        cache_key = f"user_list_{user.id}"
+        cached_qs = cache.get(cache_key)
+        if cached_qs is not None:
+            return cached_qs
+            
+        # 1. Get IDs of all rooms the requester is involved in
+        room_ids = Room.objects.filter(
             Q(owner=user) | Q(members=user) | Q(admins=user)
-        )
+        ).values_list('id', flat=True)
         
-        # 2. Get all users associated with those rooms
-        room_users = User.objects.filter(
-            Q(owned_rooms__in=accessible_rooms) | 
-            Q(accessible_rooms__in=accessible_rooms) |
-            Q(managed_rooms__in=accessible_rooms)
-        )
-        
-        # 3. Combine with self
-        return User.objects.filter(
-            Q(id=user.id) | Q(id__in=room_users)
+        # 2. Get all users associated with those specific rooms
+        qs = User.objects.filter(
+            Q(id=user.id) |
+            Q(owned_rooms__id__in=room_ids) |
+            Q(accessible_rooms__id__in=room_ids) |
+            Q(managed_rooms__id__in=room_ids)
         ).distinct().order_by('first_name', 'last_name')
+        
+        # Cache for 5 minutes
+        cache.set(cache_key, qs, 300)
+        return qs
 
 @extend_schema_view(
     get=extend_schema(tags=['Member'])
 )
 class UserListView(SharedUserVisibilityMixin, generics.ListAPIView):
-    """List all users shared across rooms."""
-    serializer_class = UserSerializer
+    """List all users shared across rooms. Uses a lightweight serializer for performance."""
+    serializer_class = UserListSerializer
     permission_classes = (permissions.IsAuthenticated,)
 
 @extend_schema_view(
