@@ -110,3 +110,28 @@ class UserDetailView(SharedUserVisibilityMixin, generics.RetrieveAPIView):
     permission_classes = (permissions.IsAuthenticated,)
     lookup_field = 'id'
 
+@extend_schema_view(
+    patch=extend_schema(tags=['Member'])
+)
+class ShadowUserUpdateView(generics.UpdateAPIView):
+    """
+    Update a shadow user profile. 
+    Allowed for any member/admin of the room they belong to.
+    """
+    serializer_class = UserSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+    http_method_names = ['patch']
+    lookup_field = 'id'
+
+    def get_queryset(self):
+        user = self.request.user
+        # Rooms requester is in
+        accessible_rooms = Room.objects.filter(
+            Q(owner=user) | Q(members=user) | Q(admins=user)
+        )
+        # Return only shadow users (is_primary=False) who are in those rooms
+        return User.objects.filter(
+            is_primary=False,
+            accessible_rooms__in=accessible_rooms
+        ).distinct()
+
