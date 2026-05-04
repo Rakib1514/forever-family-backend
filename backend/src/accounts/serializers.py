@@ -13,6 +13,7 @@ class UserSerializer(serializers.ModelSerializer):
     mother_detail = UserBasicSerializer(source='mother', read_only=True)
     father_detail = UserBasicSerializer(source='father', read_only=True)
     spouse_detail = UserBasicSerializer(source='spouse', read_only=True)
+    children = UserBasicSerializer(many=True, read_only=True)
 
     class Meta:
         model = User
@@ -22,7 +23,8 @@ class UserSerializer(serializers.ModelSerializer):
             'permanent_address', 'is_primary', 
             'mother', 'mother_detail', 
             'father', 'father_detail', 
-            'spouse', 'spouse_detail'
+            'spouse', 'spouse_detail',
+            'children'
         )
         read_only_fields = ('id',)
 
