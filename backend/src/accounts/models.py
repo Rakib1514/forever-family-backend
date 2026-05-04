@@ -77,6 +77,7 @@ class User(AbstractUser):
         related_name='spouses'
     )
 
+
     USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = ['email']
 
@@ -89,3 +90,25 @@ class User(AbstractUser):
     def children(self):
         """Helper property to get all children (from either parent)."""
         return User.objects.filter(models.Q(mother=self) | models.Q(father=self))
+    
+    @property
+    def siblings(self):
+        """Helper to get all siblings sharing at least one parent."""
+        if not self.mother and not self.father:
+            return User.objects.none()
+        
+        q = models.Q()
+        if self.mother:
+            q |= models.Q(mother=self.mother)
+        if self.father:
+            q |= models.Q(father=self.father)
+            
+        return User.objects.filter(q).exclude(id=self.id)
+    
+    @property
+    def brothers(self):
+        return self.siblings.filter(gender='M')
+    
+    @property
+    def sisters(self):
+        return self.siblings.filter(gender='F')
